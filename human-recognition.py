@@ -4,7 +4,6 @@ import time
 
 import cv2
 import argparse
-import pytesseract
 
 import numpy as np
 
@@ -17,7 +16,7 @@ from cam_video_stream import CamVideoStream
 # Set True to enter debug mode
 debug_mode = False
 # Sending metrics every X frame
-frames_to_send_metrics = 60
+frames_to_send_metrics = 30
 
 # Other global variables
 start_time = time.perf_counter()
@@ -215,18 +214,21 @@ class HumanCounting:
     def segmentateCard(self):
         global maxContourn
         from library import detect_blur
-        from library import perspective_correction
+        from library import perspective_correction, extraccion_MRZ
         if detected_id.__len__() > 0:
             array = detected_id.pop()
             cv2.normalize(array, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
 
-            if not detect_blur(array, 100):
+            if not detect_blur(array, 50):
                 try:
                     gray = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
 
                 except cv2.error as error:
                     return
-                perspective_correction(gray)
+                DNI = perspective_correction(gray, array)
+                if DNI is False:
+                    return
+                extraccion_MRZ(DNI)
                 faces = faceClassif.detectMultiScale(gray,
                                                      scaleFactor=1.1,
                                                      minNeighbors=5,
@@ -237,7 +239,7 @@ class HumanCounting:
 
     def detectByCamera(self):
         self.fps.update()
-        cvs = CamVideoStream(src=1).start()
+        cvs = CamVideoStream(src=0).start()
         # loop over some frames
         while True:
             self.frame = cvs.read()
@@ -261,9 +263,6 @@ class HumanCounting:
         if camera:
             print('[INFO] Opening Web Cam.')
             self.detectByCamera()
-        elif video_path is not None:
-            print('[INFO] Opening Video from path.')
-            self.detectByPathVideo(video_path)
 
 
 def argsParser():
