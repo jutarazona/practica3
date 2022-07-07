@@ -1,11 +1,11 @@
-import base64
-import socket
-
 import math
 import sys
 import time
+
 import cv2
 import argparse
+import pytesseract
+
 import numpy as np
 
 from fps import FPS
@@ -13,10 +13,6 @@ from fps import FPS
 from cam_video_stream import CamVideoStream
 
 # source venv/bin/activate
-
-divider = np.full((720,1280,3), fill_value=3)
-
-buffer = []
 
 # Set True to enter debug mode
 debug_mode = False
@@ -31,8 +27,10 @@ last_people_value = 0
 detected_id = []
 
 offset = 50
+maxContourn = 1500
 
 faceClassif = cv2.CascadeClassifier('Cascade files-20220628/haarcascade_frontalface_default.xml')
+
 
 class HumanCounting:
     width = 0
@@ -40,14 +38,11 @@ class HumanCounting:
     scale = 0.00392
     conf_threshold = 0.6
     nms_threshold = 0.3
-    area_threshold = 1000
+    area_threshold = 600
     outputlayers = []
     net = []
     fps = []
     people2 = 0
-
-
-
 
     def __init__(self):
         # read pre-trained model and config file
@@ -108,9 +103,11 @@ class HumanCounting:
                         h = int(detection[3] * self.height)
                         x = center_x - w / 2
                         y = center_y - h / 2
-                        class_ids.append(class_id)
-                        confidences.append(float(confidence))
-                        boxes.append([x, y, w, h])
+                        ratio = float(w / h)
+                        if 1.55 > ratio > 1.6:
+                            class_ids.append(class_id)
+                            confidences.append(float(confidence))
+                            boxes.append([x, y, w, h])
 
             # apply non-max suppression
             indices = cv2.dnn.NMSBoxes(boxes, confidences, self.conf_threshold, self.nms_threshold)
@@ -187,24 +184,6 @@ class HumanCounting:
                         w = int(box[2])
                         h = int(box[3])
 
-                        if buffer.__len__() > 3:
-                            ''' 
-                            tres = buffer.pop()
-                            dos = buffer.pop()
-                            uno = buffer.pop()
-
-                            super = np.add(tres,dos)
-                            super = np.add(super,uno)
-                            print(super[1:10,1:10])
-                            super = np.divide(super,divider)
-                            super = np.round(super)
-                            print(super[1:10, 1:10])
-                            cv2.imshow('tres',tres)
-                            cv2.imshow('dos', dos)
-                            cv2.imshow('uno', uno)
-                            cv2.imshow('super', super)
-                            cv2.waitKey(0)
-                            '''
                         detected_id.append(self.frame.copy()[y - offset:y + h + offset, x - offset:x + w + offset])
 
                         self.draw_bounding_box(class_ids[i], confidences[i], x, y,
@@ -223,7 +202,7 @@ class HumanCounting:
             cv2.imshow("object detection", self.frame)
 
             ''' 
-            print(detected_id)
+            print(detected_id) 
             for detected in detected_id:
                 id = detected_id.pop()
                 print(type(id))
@@ -234,43 +213,34 @@ class HumanCounting:
         # wait until any key is pressed
 
     def segmentateCard(self):
+        global maxContourn
+        from library import detect_blur
+        from library import perspective_correction
         if detected_id.__len__() > 0:
             array = detected_id.pop()
-            try:
-                gray = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
-            except cv2.error:
-                return
-            faces = faceClassif.detectMultiScale(gray,
-                                                 scaleFactor=1.1,
-                                                 minNeighbors=5,
-                                                 minSize=(30, 30),
-                                                 maxSize=(200, 200))
-            for (x, y, w, h) in faces:
-                cv2.rectangle(array, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.imshow('image', array)
-            print(array.shape)
-            h, w, _ = array.shape
-            array = np.reshape(array, (h, w, 3))
-            ##################REMOVE NOISE AND SMOOTH CONTOURS, MORPHOLOGY OPERATION####################
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 4))
-            opening_image = cv2.morphologyEx(array, cv2.MORPH_OPEN, kernel, iterations=1)
-            ##################INVERT THE IMAGE########################
-            invert_image = 255 - opening_image
+            cv2.normalize(array, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
 
-            edge = cv2.Canny(invert_image, 127, 255)
+            if not detect_blur(array, 100):
+                try:
+                    gray = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
 
-            cv2.imshow('edge', edge)
-            cv2.imshow("inver", invert_image)
-            cv2.waitKey(0)
-        pass
+                except cv2.error as error:
+                    return
+                perspective_correction(gray)
+                faces = faceClassif.detectMultiScale(gray,
+                                                     scaleFactor=1.1,
+                                                     minNeighbors=5,
+                                                     minSize=(30, 30),
+                                                     maxSize=(200, 200))
+                for (x, y, w, h) in faces:
+                    cv2.rectangle(array, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     def detectByCamera(self):
         self.fps.update()
-        cvs = CamVideoStream(src=0).start()
+        cvs = CamVideoStream(src=1).start()
         # loop over some frames
         while True:
             self.frame = cvs.read()
-            buffer.append(self.frame)
             self.detect(False)
             self.fps.update()
             self.segmentateCard()

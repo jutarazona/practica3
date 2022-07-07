@@ -1,0 +1,7 @@
+./idea
+__pycache__/
+yolov3-test.cfg
+yolov3_training_last_project.weights
+.idea/
+Cascade files-20220628/
+ID.py
