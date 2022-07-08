@@ -133,9 +133,10 @@ def perspective_correction(image, array):
 
     # loop over the contours
     for c in cnts:
-        # approximate the contourç
+        # approximate the contour
         epsilon = 0.01 * cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, epsilon, True)
+        text = 'Warped DNI'
         if 3 < len(approx) < 5 and cv2.contourArea(c) > 2000:
             x, y, w, h = cv2.boundingRect(c)
             cv2.drawContours(image, [c], -1, (255, 0, 0), thickness=5)
@@ -150,7 +151,7 @@ def perspective_correction(image, array):
             print(rect)
             DNI = four_point_transform(array.copy(), pts)
 
-            cv2.imshow("warped", DNI)
+            #cv2.imshow(text, DNI)
 
     if DNI is None:
         return False
@@ -164,15 +165,15 @@ def extraccion_MRZ(image):
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_OTSU)
 
     # Dilate to combine adjacent text contours
-    cv2.imshow("t", thresh)
+    #cv2.imshow("t", thresh)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
     erode = cv2.erode(thresh, kernel, iterations=3)
     dilate = cv2.dilate(erode, kernel, iterations=1)
-    cv2.imshow("dilate", erode)
-    cv2.waitKey()
+    #cv2.imshow("dilate", erode)
+    #cv2.waitKey()
 
     # Find contours, highlight text areas, and extract ROIs
-    cnts = cv2.findContours(erode, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cv2.findContours(erode, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     ROI = []
     ROInumber = 0
@@ -183,13 +184,15 @@ def extraccion_MRZ(image):
         epsilon = 0.01 * cv2.arcLength(c, True)
 
         approx = cv2.approxPolyDP(c, epsilon, True)
-        if 3 < len(approx) < 7 and area > 1000:
+        text = 'Roi'
+        if 3 < len(approx) < 12 and area > 7000:
             # cv2.rectangle(image, (x, y), (x + w, y + h), (36, 255, 12), 3)
             cv2.drawContours(image, [c], -1, (255, 0, 0), thickness=5)
             ROI = image[y:y + h, x:x + w]
             ROInumber += 1
-            cv2.imshow("roi", ROI)
-            cv2.waitKey()
+            cv2.imshow(text, ROI)
+            cv2.waitKey(1000)
+            cv2.destroyWindow(text)
 
     if ROInumber == 1:
         return ROI
@@ -204,3 +207,7 @@ def auto_canny(image, sigma=0.7):
     upper = int(min(255, (1.0 + sigma) * v))
     # return the edged image
     return cv2.Canny(image, lower, upper)
+
+
+def ocr(img):
+    pass
