@@ -30,7 +30,7 @@ maxContourn = 1500
 faceClassif = cv2.CascadeClassifier('Cascade files-20220628/haarcascade_frontalface_default.xml')
 
 
-class HumanCounting:
+class DNI_detection:
     width = 0
     height = 0
     scale = 0.00392
@@ -138,18 +138,15 @@ class HumanCounting:
             # display output image
             cv2.imshow("object detection", self.frame)
 
-
-        # wait until any key is pressed
-
     def segmentateCard(self):
         global maxContourn
         from library import detect_blur
-        from library import perspective_correction, extraccion_MRZ, ocr
+        from library import perspective_correction, extraccion_MRZ, ocr, text_detection
         if detected_id.__len__() > 0:
             array = detected_id.pop()
             cv2.normalize(array, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
 
-            if not detect_blur(array, 100):
+            if not detect_blur(array, 1000):
                 try:
                     gray = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
 
@@ -164,19 +161,42 @@ class HumanCounting:
                                                      minNeighbors=5,
                                                      minSize=(30, 30),
                                                      maxSize=(200, 200))
+                text = 'Faces'
                 for (x, y, w, h) in faces:
-                    cv2.rectangle(DNI, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                    cv2.imshow("Faces", DNI)
-                    cv2.waitKey(1000)
-                    cv2.destroyWindow("Faces")
+                    try:
+                        cv2.destroyWindow(text)
+                    except:
+                        pass
+                    DNI_copy = DNI.copy()
+                    cv2.rectangle(DNI_copy, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.imshow(text, DNI_copy)
+
                 # back dni
+                mzr = False
+                text = 'MRZ'
                 if len(faces) == 0:
-                    extraccion_MRZ(DNI)
-                ocr(DNI)
+                    mzr = extraccion_MRZ(DNI)
+                    if mzr is not False:
+                        try:
+                            cv2.destroyWindow(text)
+                        except:
+                            pass
+                        cv2.imshow(text, mzr)
+                        # ocr(mzr)
+                        # text_detection(DNI)
+                else:
+                    text = "Text Detection"
+                    text_segmentation = text_detection(DNI)
+                    # ocr(DNI)
+                    try:
+                        cv2.destroyWindow(text)
+                    except:
+                        pass
+                    cv2.imshow(text, text_segmentation)
 
     def detectByCamera(self):
         self.fps.update()
-        cvs = CamVideoStream(src=0).start()
+        cvs = CamVideoStream(src=1).start()
         # loop over some frames
         while True:
             self.frame = cvs.read()
@@ -191,15 +211,8 @@ class HumanCounting:
         cvs.stop()
 
     def humanDetector(self, args):
-        video_path = args['video']
-        if str(args["camera"]) == 'True':
-            camera = True
-        else:
-            camera = False
-
-        if camera:
-            print('[INFO] Opening Web Cam.')
-            self.detectByCamera()
+        print('[INFO] Opening Web Cam.')
+        self.detectByCamera()
 
 
 def argsParser():
@@ -211,5 +224,5 @@ def argsParser():
 
 if __name__ == "__main__":
     args = argsParser()
-    h = HumanCounting()
-    h.humanDetector(args)
+    DNI = DNI_detection()
+    DNI.humanDetector(args)
