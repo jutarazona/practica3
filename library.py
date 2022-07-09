@@ -31,9 +31,11 @@ def detect_blur(image, threshold):
         '''
         return True
     # show the image
+    '''
     cv2.putText(img, "{}: {:.2f}".format(text, fm), (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
     cv2.imshow("Image", img)
+    '''
     return False
 
 
