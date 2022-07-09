@@ -146,7 +146,7 @@ class DNI_detection:
             array = detected_id.pop()
             cv2.normalize(array, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
 
-            if not detect_blur(array, 1000):
+            if not detect_blur(array, 200):
                 try:
                     gray = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
 
@@ -196,7 +196,7 @@ class DNI_detection:
 
     def detectByCamera(self):
         self.fps.update()
-        cvs = CamVideoStream(src=1).start()
+        cvs = CamVideoStream(src=0).start()
         # loop over some frames
         while True:
             self.frame = cvs.read()
